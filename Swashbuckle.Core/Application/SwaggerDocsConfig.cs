@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Web.Http;
 using System.Web.Http.Description;
+using System.Xml.XPath;
 using Newtonsoft.Json;
 using Swashbuckle.Swagger;
 using Swashbuckle.Swagger.Annotations;
@@ -30,8 +31,10 @@ namespace Swashbuckle.Application
         private bool _ignoreObsoleteProperties;
         private bool _describeAllEnumsAsStrings;
         private bool _describeStringEnumsInCamelCase;
+        private bool _applyFiltersToAllSchemas;
         private readonly IList<Func<IOperationFilter>> _operationFilters;
         private readonly IList<Func<IDocumentFilter>> _documentFilters;
+        private readonly IList<Func<XPathDocument>> _xmlDocFactories;
         private Func<IEnumerable<ApiDescription>, ApiDescription> _conflictingActionsResolver;
         private Func<HttpRequestMessage, string> _rootUrlResolver;
 
@@ -49,8 +52,10 @@ namespace Swashbuckle.Application
             _ignoreObsoleteProperties = false;
             _describeAllEnumsAsStrings = false;
             _describeStringEnumsInCamelCase = false;
+            _applyFiltersToAllSchemas = false;
             _operationFilters = new List<Func<IOperationFilter>>();
             _documentFilters = new List<Func<IDocumentFilter>>();
+            _xmlDocFactories = new List<Func<XPathDocument>>();
             _rootUrlResolver = DefaultRootUrlResolver;
 
             SchemaFilter<ApplySwaggerSchemaFilterAttributes>();
@@ -125,7 +130,12 @@ namespace Swashbuckle.Application
 
         public void MapType<T>(Func<Schema> factory)
         {
-            _customSchemaMappings.Add(typeof(T), factory);
+            MapType(typeof(T), factory);
+        }
+
+        public void MapType(Type type, Func<Schema> factory)
+        {
+            _customSchemaMappings.Add(type, factory);
         }
 
         public void SchemaFilter<TFilter>()
@@ -140,7 +150,7 @@ namespace Swashbuckle.Application
         }
 
         // NOTE: In next major version, ModelFilter will completely replace SchemaFilter
-        internal  void ModelFilter<TFilter>()
+        internal void ModelFilter<TFilter>()
             where TFilter : IModelFilter, new()
         {
             ModelFilter(() => new TFilter());
@@ -173,6 +183,12 @@ namespace Swashbuckle.Application
             _ignoreObsoleteProperties = true;
         }
 
+        [Obsolete("This will be removed in 6.0.0; it will always be true.")]
+        public void ApplyFiltersToAllSchemas()
+        {
+            _applyFiltersToAllSchemas = true;
+        }
+
         public void OperationFilter<TFilter>()
             where TFilter : IOperationFilter, new()
         {
@@ -195,10 +211,14 @@ namespace Swashbuckle.Application
             _documentFilters.Add(factory);
         }
 
+        public void IncludeXmlComments(Func<XPathDocument> xmlDocFactory)
+        {
+            _xmlDocFactories.Add(xmlDocFactory);
+        }
+
         public void IncludeXmlComments(string filePath)
         {
-            OperationFilter(() => new ApplyXmlActionComments(filePath));
-            ModelFilter(() => new ApplyXmlTypeComments(filePath));
+            _xmlDocFactories.Add(() => new XPathDocument(filePath));
         }
 
         public void ResolveConflictingActions(Func<IEnumerable<ApiDescription>, ApiDescription> conflictingActionsResolver)
@@ -224,6 +244,17 @@ namespace Swashbuckle.Application
                 ? _securitySchemeBuilders.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Build())
                 : null;
 
+            // NOTE: Instantiate & add the XML comments filters here so they're executed before any
+            // custom filters AND so they can share the same XPathDocument (perf. optimization)
+            var modelFilters = _modelFilters.Select(factory => factory()).ToList();
+            var operationFilters = _operationFilters.Select(factory => factory()).ToList();
+            foreach (var xmlDocFactory in _xmlDocFactories)
+            {
+                var xmlDoc = xmlDocFactory();
+                modelFilters.Insert(0, new ApplyXmlTypeComments(xmlDoc));
+                operationFilters.Insert(0, new ApplyXmlActionComments(xmlDoc));
+            }
+
             var options = new SwaggerGeneratorOptions(
                 versionSupportResolver: _versionSupportResolver,
                 schemes: _schemes,
@@ -233,12 +264,13 @@ namespace Swashbuckle.Application
                 groupingKeyComparer: _groupingKeyComparer,
                 customSchemaMappings: _customSchemaMappings,
                 schemaFilters: _schemaFilters.Select(factory => factory()),
-                modelFilters: _modelFilters.Select(factory => factory()),
+                modelFilters: modelFilters,
                 ignoreObsoleteProperties: _ignoreObsoleteProperties,
                 schemaIdSelector: _schemaIdSelector,
                 describeAllEnumsAsStrings: _describeAllEnumsAsStrings,
                 describeStringEnumsInCamelCase: _describeStringEnumsInCamelCase,
-                operationFilters: _operationFilters.Select(factory => factory()),
+                applyFiltersToAllSchemas: _applyFiltersToAllSchemas,
+                operationFilters: operationFilters,
                 documentFilters: _documentFilters.Select(factory => factory()),
                 conflictingActionsResolver: _conflictingActionsResolver
             );

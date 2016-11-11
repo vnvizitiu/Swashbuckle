@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 using System.ComponentModel.DataAnnotations;
 using Newtonsoft.Json.Serialization;
@@ -51,6 +52,7 @@ namespace Swashbuckle.Swagger
 
             partialSchema.type = schema.type;
             partialSchema.format = schema.format;
+            partialSchema.vendorExtensions = schema.vendorExtensions;
 
             if (schema.items != null)
             {

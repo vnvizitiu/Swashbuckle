@@ -112,12 +112,12 @@
     <Compile Include="SwaggerUi\EmbeddedAssetProvider.cs" />
     <Compile Include="SwaggerUi\IAssetProvider.cs" />
     <Compile Include="SwaggerUi\StreamExtensions.cs" />
+    <Compile Include="Swagger\XmlComments\XmlTextHelper.cs" />
     <Compile Include="Swagger\XmlComments\XPathNavigatorExtensions.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
     <EmbeddedResource Include="SwaggerUi\CustomAssets\discoveryUrlSelector.js" />
-    <EmbeddedResource Include="SwaggerUi\CustomAssets\swagger-oauth.js" />
     <EmbeddedResource Include="SwaggerUi\CustomAssets\typography.css" />
     <EmbeddedResource Include="SwaggerUi\CustomAssets\index.html" />
     <EmbeddedResource Include="SwaggerUi\CustomAssets\screen.css" />

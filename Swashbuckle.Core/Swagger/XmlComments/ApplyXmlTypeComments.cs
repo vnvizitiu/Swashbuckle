@@ -1,11 +1,5 @@
-﻿using System;
+﻿using System.Reflection;
 using System.Xml.XPath;
-using System.Linq;
-using System.Collections.Generic;
-using System.Text;
-using System.Reflection;
-using Newtonsoft.Json.Serialization;
-using Swashbuckle.Swagger;
 
 namespace Swashbuckle.Swagger.XmlComments
 {
@@ -14,17 +8,26 @@ namespace Swashbuckle.Swagger.XmlComments
         private const string MemberXPath = "/doc/members/member[@name='{0}']";
         private const string SummaryTag = "summary";
 
-        private readonly XPathNavigator _navigator;
+        private readonly XPathDocument _xmlDoc;
 
-        public ApplyXmlTypeComments(string xmlCommentsPath)
+        public ApplyXmlTypeComments(string filePath)
+            : this(new XPathDocument(filePath)) { }
+
+        public ApplyXmlTypeComments(XPathDocument xmlDoc)
         {
-            _navigator = new XPathDocument(xmlCommentsPath).CreateNavigator();
+            _xmlDoc = xmlDoc;
         }
 
         public void Apply(Schema model, ModelFilterContext context)
         {
+            XPathNavigator navigator;
+            lock (_xmlDoc)
+            {
+                navigator = _xmlDoc.CreateNavigator();
+            }
+
             var commentId = XmlCommentsIdHelper.GetCommentIdForType(context.SystemType);
-            var typeNode = _navigator.SelectSingleNode(string.Format(MemberXPath, commentId));
+            var typeNode = navigator.SelectSingleNode(string.Format(MemberXPath, commentId));
 
             if (typeNode != null)
             {
@@ -33,21 +36,24 @@ namespace Swashbuckle.Swagger.XmlComments
                     model.description = summaryNode.ExtractContent();
             }
 
-            foreach (var entry in model.properties)
+            if (model.properties != null)
             {
-                var jsonProperty = context.JsonObjectContract.Properties[entry.Key];
-                if (jsonProperty == null) continue;
+                foreach (var entry in model.properties)
+                {
+                    var jsonProperty = context.JsonObjectContract.Properties[entry.Key];
+                    if (jsonProperty == null) continue;
 
-                ApplyPropertyComments(entry.Value, jsonProperty.PropertyInfo());
+                    ApplyPropertyComments(navigator, entry.Value, jsonProperty.PropertyInfo());
+                }
             }
         }
 
-        private void ApplyPropertyComments(Schema propertySchema, PropertyInfo propertyInfo)
+        private static void ApplyPropertyComments(XPathNavigator navigator, Schema propertySchema, PropertyInfo propertyInfo)
         {
             if (propertyInfo == null) return;
 
             var commentId = XmlCommentsIdHelper.GetCommentIdForProperty(propertyInfo);
-            var propertyNode = _navigator.SelectSingleNode(string.Format(MemberXPath, commentId));
+            var propertyNode = navigator.SelectSingleNode(string.Format(MemberXPath, commentId));
             if (propertyNode == null) return;
 
             var propSummaryNode = propertyNode.SelectSingleNode(SummaryTag);

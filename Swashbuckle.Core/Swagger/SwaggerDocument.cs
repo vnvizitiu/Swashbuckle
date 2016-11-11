@@ -118,7 +118,7 @@ namespace Swashbuckle.Swagger
 
         public IList<string> schemes;
 
-        public bool deprecated;
+        public bool? deprecated;
 
         public IList<IDictionary<string, IEnumerable<string>>> security;
 
@@ -157,8 +157,6 @@ namespace Swashbuckle.Swagger
         public bool? required;
 
         public Schema schema;
-
-        public Dictionary<string, object> vendorExtensions = new Dictionary<string, object>();
     }
 
     public class Schema
@@ -262,6 +260,8 @@ namespace Swashbuckle.Swagger
         public IList<object> @enum;
 
         public int? multipleOf;
+
+        public Dictionary<string, object> vendorExtensions = new Dictionary<string, object>();
     }
 
     public class Response
@@ -273,6 +273,8 @@ namespace Swashbuckle.Swagger
         public IDictionary<string, Header> headers;
 
         public object examples;
+
+        public Dictionary<string, object> vendorExtensions = new Dictionary<string, object>();
     }
 
     public class Header : PartialSchema

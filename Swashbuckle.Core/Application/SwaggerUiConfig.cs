@@ -27,13 +27,16 @@ namespace Swashbuckle.Application
                 { "%(ValidatorUrl)", "" },
                 { "%(CustomScripts)", "" },
                 { "%(DocExpansion)", "none" },
+                { "%(SupportedSubmitMethods)", "get|put|post|delete|options|head|patch" },
                 { "%(OAuth2Enabled)", "false" },
                 { "%(OAuth2ClientId)", "" },
                 { "%(OAuth2ClientSecret)", "" },
                 { "%(OAuth2Realm)", "" },
                 { "%(OAuth2AppName)", "" },
                 { "%(OAuth2ScopeSeperator)", " " },
-                { "%(OAuth2AdditionalQueryStringParams)", "{}" }
+                { "%(OAuth2AdditionalQueryStringParams)", "{}" },
+				{ "%(ApiKeyName)", "api_key" },
+				{ "%(ApiKeyIn)", "query" }
             };
             _rootUrlResolver = rootUrlResolver;
 
@@ -41,13 +44,12 @@ namespace Swashbuckle.Application
 
             // Use some custom versions to support config and extensionless paths
             var thisAssembly = GetType().Assembly;
-            CustomAsset("index", thisAssembly, "Swashbuckle.SwaggerUi.CustomAssets.index.html");
+            CustomAsset("index", thisAssembly, "Swashbuckle.SwaggerUi.CustomAssets.index.html", isTemplate: true);
             CustomAsset("css/screen-css", thisAssembly, "Swashbuckle.SwaggerUi.CustomAssets.screen.css");
             CustomAsset("css/typography-css", thisAssembly, "Swashbuckle.SwaggerUi.CustomAssets.typography.css");
-            CustomAsset("lib/swagger-oauth-js", thisAssembly, "Swashbuckle.SwaggerUi.CustomAssets.swagger-oauth.js");
         }
 
-        public void InjectStylesheet(Assembly resourceAssembly, string resourceName, string media = "screen")
+        public void InjectStylesheet(Assembly resourceAssembly, string resourceName, string media = "screen", bool isTemplate = false)
         {
             var path = "ext/" + resourceName.Replace(".", "-");
 
@@ -55,7 +57,7 @@ namespace Swashbuckle.Application
             stringBuilder.AppendLine("<link href='" + path + "' media='" + media + "' rel='stylesheet' type='text/css' />");
             _templateParams["%(StylesheetIncludes)"] = stringBuilder.ToString();
 
-            CustomAsset(path, resourceAssembly, resourceName);
+            CustomAsset(path, resourceAssembly, resourceName, isTemplate);
         }
         
         public void BooleanValues(IEnumerable<string> values)
@@ -73,7 +75,7 @@ namespace Swashbuckle.Application
             _templateParams["%(ValidatorUrl)"] = "null";
         }
 
-        public void InjectJavaScript(Assembly resourceAssembly, string resourceName)
+        public void InjectJavaScript(Assembly resourceAssembly, string resourceName, bool isTemplate = false)
         {
             var path = "ext/" + resourceName.Replace(".", "-");
 
@@ -84,7 +86,7 @@ namespace Swashbuckle.Application
             stringBuilder.Append(path);
             _templateParams["%(CustomScripts)"] = stringBuilder.ToString();
 
-            CustomAsset(path, resourceAssembly, resourceName);
+            CustomAsset(path, resourceAssembly, resourceName, isTemplate);
         }
 
         public void DocExpansion(DocExpansion docExpansion)
@@ -92,9 +94,15 @@ namespace Swashbuckle.Application
             _templateParams["%(DocExpansion)"] = docExpansion.ToString().ToLower();
         }
 
-        public void CustomAsset(string path, Assembly resourceAssembly, string resourceName)
+        public void SupportedSubmitMethods(params string[] methods)
         {
-            _pathToAssetMap[path] = new EmbeddedAssetDescriptor(resourceAssembly, resourceName, path == "index");
+            _templateParams["%(SupportedSubmitMethods)"] = String.Join("|", methods).ToLower();
+        }
+
+        public void CustomAsset(string path, Assembly resourceAssembly, string resourceName, bool isTemplate = false)
+        {
+            if (path == "index") isTemplate = true;
+            _pathToAssetMap[path] = new EmbeddedAssetDescriptor(resourceAssembly, resourceName, isTemplate);
         }
 
         public void EnableDiscoveryUrlSelector()
@@ -125,6 +133,11 @@ namespace Swashbuckle.Application
             if (additionalQueryStringParams != null)
                 _templateParams["%(OAuth2AdditionalQueryStringParams)"] = JsonConvert.SerializeObject(additionalQueryStringParams);
         }
+
+		public void EnableApiKeySupport(string name, string apiKeyIn) {
+			_templateParams["%(ApiKeyName)"] = name;
+			_templateParams["%(ApiKeyIn)"] = apiKeyIn;
+		}
 
         internal IAssetProvider GetSwaggerUiProvider()
         {

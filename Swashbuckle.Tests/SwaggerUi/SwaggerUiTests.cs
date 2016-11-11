@@ -65,12 +65,14 @@ namespace Swashbuckle.Tests.SwaggerUi
                 {
                     c.DocExpansion(DocExpansion.Full);
                     c.BooleanValues(new[] { "1", "0" });
+                    c.SupportedSubmitMethods("GET", "HEAD");
                 });
 
             var content = GetContentAsString("http://tempuri.org/swagger/ui/index");
 
             StringAssert.Contains("docExpansion: 'full'", content);
             StringAssert.Contains("booleanValues: arrayFrom('1|0')", content);
+            StringAssert.Contains("supportedSubmitMethods: arrayFrom('get|head')", content);
         }
         
         [Test]
@@ -173,6 +175,20 @@ namespace Swashbuckle.Tests.SwaggerUi
             var response = Get("http://tempuri.org/swagger/ui/ext/foobar");
 
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Test]
+        public void It_exposes_config_for_apiKey_name_and_location()
+        {
+            SetUpHandler(c =>
+                {
+                    c.EnableApiKeySupport("myApiKey", "header");
+                });
+
+            var content = GetContentAsString("http://tempuri.org/swagger/ui/index");
+
+            StringAssert.Contains("apiKeyName: 'myApiKey'", content);
+            StringAssert.Contains("apiKeyIn: 'header'", content);
         }
 
         [TestCase("http://tempuri.org/swagger/ui/images/logo_small-png",                   Result = "image/png")]
